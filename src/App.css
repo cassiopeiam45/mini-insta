@@ -1,0 +1,235 @@
+:root {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  color: #111;
+  background-color: #fafafa;
+}
+
+body {
+  margin: 0;
+}
+
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: #fafafa;
+}
+
+/* ヘッダー */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #ffffffcc;
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid #ddd;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.avatar,
+.avatar-small {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: #eee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.avatar-small {
+  width: 28px;
+  height: 28px;
+}
+
+/* メインレイアウト */
+.main {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  padding: 16px;
+}
+
+@media (max-width: 768px) {
+  .main {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 新規投稿フォーム */
+.new-post {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.new-post h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.new-post input {
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+.new-post button {
+  align-self: flex-end;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  background: #0095f6;
+  color: #fff;
+}
+
+/* タイムライン */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.post-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.post-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.post-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: #eee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.post-username {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.post-display-name {
+  font-size: 11px;
+  color: #666;
+}
+
+.post-image-wrapper img {
+  width: 100%;
+  display: block;
+  object-fit: cover;
+  max-height: 480px;
+}
+
+.post-body {
+  padding: 8px 12px 12px;
+  font-size: 13px;
+}
+
+.post-time {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #999;
+}
+
+/* サイドバー（フォローリスト） */
+.sidebar {
+  position: sticky;
+  top: 60px;
+  align-self: flex-start;
+}
+
+.follow-list {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 13px;
+}
+
+.follow-list h2 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.follow-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.follow-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-follow,
+.btn-unfollow {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.btn-follow {
+  background: #0095f6;
+  color: #fff;
+  border-color: #0095f6;
+}
+
+.btn-unfollow {
+  background: #fff;
+  color: #111;
+  border-color: #ccc;
+}
+
+.you-label {
+  font-size: 11px;
+  color: #999;
+}
+.username-input {
+  border: 1px solid #ccc;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
