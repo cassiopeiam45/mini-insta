@@ -82,6 +82,45 @@ function App() {
     setAvatarUrl(publicUrl);
   };
 
+
+  useEffect(() => {
+    const container = document.getElementById("snow-container");
+    if (!container) return;
+
+    const flakes = [];
+
+    const createFlake = () => {
+      const flake = document.createElement("div");
+      flake.className = "snowflake";
+      flake.textContent = "❄";
+
+      // ランダムな位置・サイズ・アニメ速度
+      flake.style.left = Math.random() * 100 + "vw";
+      const size = 8 + Math.random() * 10;
+      flake.style.fontSize = size + "px";
+      flake.style.animationDuration = 5 + Math.random() * 10 + "s";
+      flake.style.opacity = 0.3 + Math.random() * 0.7;
+
+      container.appendChild(flake);
+      flakes.push(flake);
+
+      // アニメーション終わったら削除
+      setTimeout(() => {
+        flake.remove();
+      }, 15000);
+    };
+
+    // すこし多めに降らせる
+    const interval = setInterval(createFlake, 300);
+    // 最初に数個まとめて降らせる
+    for (let i = 0; i < 30; i++) createFlake();
+
+    // クリーンアップ
+    return () => {
+      clearInterval(interval);
+      flakes.forEach((f) => f.remove());
+    };
+  }, []);
   // -----------------------
   // 起動時: ローカルから名前を復元
   // -----------------------
@@ -375,6 +414,7 @@ function App() {
   // =======================
   return (
     <div className="app">
+       <div id="snow-container" className="snow-container"></div>
       <header className="header">
         <div className="logo">miniInsta</div>
 
