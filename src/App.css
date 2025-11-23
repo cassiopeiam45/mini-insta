@@ -1,113 +1,191 @@
-:root {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  color: #111;
-  background-color: #fafafa;
+/* ==========================
+   全体
+========================== */
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  background: #f5f5f7;
 }
 
 .app {
-  max-width: 960px;
-  margin: 0 auto;
   min-height: 100vh;
-  background: #fafafa;
+  background: #f5f5f7;
 }
 
-/* ヘッダー */
+/* ==========================
+   ヘッダー
+========================== */
+
 .header {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: #ffffffcc;
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid #ddd;
-  padding: 8px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
+  padding: 10px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e5ea;
 }
 
 .logo {
-  font-weight: 700;
   font-size: 20px;
+  font-weight: 700;
 }
+
+/* プロフィールボタン */
+
+.profile-button {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: none;
+  background: #f2f2f7;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.profile-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ユーザー名＋アイコン */
 
 .user-info {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  flex: 1;
 }
 
-.avatar,
-.avatar-small {
+.avatar {
   width: 32px;
   height: 32px;
   border-radius: 999px;
-  background: #eee;
+  background: #007aff;
+  color: white;
+  font-weight: bold;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-info input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 999px;
+  border: 1px solid #d1d1d6;
+  font-size: 14px;
+}
+
+/* 通知ボタン */
+
+.notify-button {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: none;
+  background: #f2f2f7;
+  font-size: 18px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notify-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ff3b30;
+  color: white;
+  font-size: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
 }
 
-.avatar-small {
-  width: 28px;
-  height: 28px;
-}
+/* ==========================
+   メインエリア
+========================== */
 
-/* メインレイアウト */
 .main {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 16px;
+  max-width: 900px;
+  margin: 0 auto;
   padding: 16px;
 }
 
-@media (max-width: 768px) {
-  .main {
-    grid-template-columns: 1fr;
-  }
+.timeline-section {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
 }
 
-/* 新規投稿フォーム */
+/* ==========================
+   新規投稿フォーム
+========================== */
+
 .new-post {
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-bottom: 24px;
 }
 
 .new-post h2 {
   margin: 0 0 4px;
-  font-size: 16px;
+  font-size: 18px;
 }
 
-.new-post input {
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
+.new-post input[type="file"] {
   font-size: 14px;
 }
 
-.new-post button {
+.new-post input[type="text"] {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #d1d1d6;
+  font-size: 14px;
+}
+
+.new-post button[type="submit"] {
   align-self: flex-end;
-  padding: 6px 12px;
+  padding: 8px 18px;
   border-radius: 999px;
   border: none;
-  font-size: 14px;
+  background: #007aff;
+  color: white;
+  font-weight: 600;
   cursor: pointer;
-  background: #0095f6;
-  color: #fff;
 }
 
-/* タイムライン */
+/* ==========================
+   タイムライン & 投稿カード
+========================== */
+
 .timeline {
   display: flex;
   flex-direction: column;
@@ -115,9 +193,9 @@ body {
 }
 
 .post-card {
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 12px;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e5e5ea;
   overflow: hidden;
 }
 
@@ -125,211 +203,305 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 10px 12px;
 }
 
-.post-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  background: #eee;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
+.post-header-main {
+  flex: 1;
+  min-width: 0;
 }
 
-.post-username {
-  font-size: 13px;
+.post-username-button {
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  font-size: 14px;
   font-weight: 600;
+  cursor: pointer;
 }
 
 .post-display-name {
-  font-size: 11px;
-  color: #666;
+  font-size: 12px;
+  color: #8e8e93;
+}
+
+.post-delete-button {
+  border: none;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  background: #ff3b30;
+  color: white;
+  cursor: pointer;
+}
+
+.post-image-wrapper {
+  width: 100%;
+  background: #000;
 }
 
 .post-image-wrapper img {
-  width: 100%;
   display: block;
-  object-fit: cover;
-  max-height: 480px;
+  width: 100%;
+  height: auto;
 }
 
 .post-body {
   padding: 8px 12px 12px;
-  font-size: 13px;
-}
-
-.post-time {
-  display: block;
-  margin-top: 4px;
-  font-size: 11px;
-  color: #999;
-}
-
-/* サイドバー（フォローリスト） */
-.sidebar {
-  position: sticky;
-  top: 60px;
-  align-self: flex-start;
-}
-
-.follow-list {
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  padding: 12px;
-  font-size: 13px;
-}
-
-.follow-list h2 {
-  margin: 0 0 8px;
   font-size: 14px;
 }
 
-.follow-item {
+.post-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-top: 4px;
 }
 
-.follow-user {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-follow,
-.btn-unfollow {
+.like-button {
   border-radius: 999px;
+  border: none;
   padding: 4px 10px;
-  font-size: 11px;
+  font-size: 14px;
+  background: #ffcc00;
   cursor: pointer;
-  border: 1px solid transparent;
 }
 
-.btn-follow {
-  background: #0095f6;
-  color: #fff;
-  border-color: #0095f6;
-}
-
-.btn-unfollow {
-  background: #fff;
-  color: #111;
-  border-color: #ccc;
-}
-
-.you-label {
+.post-time {
   font-size: 11px;
-  color: #999;
+  color: #8e8e93;
 }
-.username-input {
-  border: 1px solid #ccc;
-  border-radius: 999px;
-  padding: 4px 8px;
+
+/* コメント */
+
+.comments {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.comment {
   font-size: 13px;
 }
 
-/* もともとの .header があればそのままでOK */
-.header {
-  /* 既に書いてあるプロパティに追加してOK */
-  position: relative; /* ベルをこの中で絶対配置できるようにする */
+.comment-form {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
 }
 
-/* 通知ボタンの基本スタイルを少し控えめに */
-.notify-button {
+.comment-form input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 999px;
+  border: 1px solid #d1d1d6;
+  font-size: 13px;
+}
+
+.comment-form button {
+  border-radius: 999px;
+  border: none;
+  padding: 6px 12px;
+  font-size: 13px;
+  background: #007aff;
+  color: white;
+  cursor: pointer;
+}
+
+/* ==========================
+   プロフィール画面
+========================== */
+
+.profile-view {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+}
+
+.back-button {
   border: none;
   background: transparent;
+  color: #007aff;
   cursor: pointer;
-  font-size: 22px;
-  position: static;  /* PCでは普通にフローの中 */
+  margin-bottom: 8px;
 }
 
-/* バッジがある場合の位置調整は今まで通りでOK */
-.notify-badge {
-  margin-left: 4px;
-  font-size: 11px;
-  background: #e0245e;
+.profile-header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  background: #007aff;
   color: white;
-  border-radius: 999px;
-  padding: 0 5px;
-}
-
-/* ▼スマホサイズのときだけ右上に浮かせる */
-@media (max-width: 768px) {
-  .header {
-    position: relative;
-  }
-
-  .notify-button {
-    position: absolute;
-    top: 8px;
-    right: 12px;
-    font-size: 20px;      /* ちょっと小さめ */
-    padding: 4px;
-  }
-
-  /* 入力欄がベルとかぶらないように、右側に少し余白をあける */
-  .user-info {
-    padding-right: 40px;
-  }
-}
-.post-username-button {
-  background: none;
-  border: none;
-  padding: 0;
-  color: #0a66c2;
-  cursor: pointer;
-  font-weight: 600;
-}
-.post-username-button:hover {
-  text-decoration: underline;
-}
-
-.avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  background: #eee;
-  display: inline-flex;
+  font-size: 28px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
-  margin-right: 8px;
-  overflow: hidden; /* 画像は丸に切る */
+  overflow: hidden;
 }
 
-.avatar-img {
+.profile-avatar .avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-info h2 {
+  margin: 0 0 4px;
+}
+
+.profile-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: #8e8e93;
+}
+
+.avatar-upload {
+  margin-top: 8px;
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #d1d1d6;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* 写真グリッド */
+
+.profile-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.profile-grid-item img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
-.profile-avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 999px;
-  background: #eee;
+
+/* ==========================
+   通知パネル
+========================== */
+
+.notifications-panel {
+  position: fixed;
+  right: 8px;
+  top: 60px;
+  width: 280px;
+  max-height: 60vh;
+  overflow: auto;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+  z-index: 20;
+  font-size: 13px;
+}
+
+.notifications-panel .panel-header {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  margin-right: 16px;
-  overflow: hidden;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e5e5ea;
 }
 
-.avatar-upload {
-  display: inline-block;
-  margin-top: 8px;
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  border: 1px solid #ddd;
-  cursor: pointer;
-  background: #fff;
+.notifications-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
+.notifications-panel li {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f2f2f7;
+  display: flex;
+  gap: 6px;
+}
 
+.notifications-panel li.unread {
+  background: #f0f9ff;
+}
+
+.notifications-panel .kind {
+  flex-shrink: 0;
+}
+
+.notifications-panel .text {
+  flex: 1;
+}
+
+.notifications-panel .time {
+  font-size: 10px;
+  color: #8e8e93;
+  white-space: nowrap;
+}
+
+/* ==========================
+   スマホ用レスポンシブ
+========================== */
+
+@media (max-width: 768px) {
+  .header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .logo {
+    flex-basis: 100%;
+  }
+
+  .profile-button {
+    order: 3;
+  }
+
+  .user-info {
+    order: 2;
+  }
+
+  .notify-button {
+    order: 4;
+  }
+
+  .main {
+    padding: 8px;
+  }
+
+  .timeline-section,
+  .profile-view {
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .profile-header {
+    align-items: flex-start;
+  }
+
+  .profile-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .profile-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .post-card {
+    border-radius: 12px;
+  }
+}
