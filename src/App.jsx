@@ -13,16 +13,16 @@ function App() {
   const [file, setFile] = useState(null);
   const [nameLocked, setNameLocked] = useState(false);
 
-  // 表示中の画面: "timeline" | "profile"
+  // 画面状態: "timeline" | "profile"
   const [view, setView] = useState("timeline");
-  // プロフィール表示中のユーザー
   const [profileUser, setProfileUser] = useState(null);
+
   // 自分のアバターURL
   const [avatarUrl, setAvatarUrl] = useState(null);
 
-  // -----------------------
+  // ================================
   // プロフィール画像の読み込み
-  // -----------------------
+  // ================================
   const loadAvatar = async (name) => {
     if (!name) return;
 
@@ -39,20 +39,24 @@ function App() {
     setAvatarUrl(data?.avatar_url || null);
   };
 
-  // -----------------------
+  // ================================
   // アバターアップロード
-  // -----------------------
+  // ================================
   const handleAvatarUpload = async (file) => {
     if (!userName || !file) return;
 
-    const ext = file.name.split(".").pop();
-    const filePath = `${userName}-${Date.now()}.${ext}`;
+    const ext = file.name.split(".").pop() || "png";
+
+    // ユーザー名を入れず、英数字だけのパスにする（日本語キー対策）
+    const filePath = `avatar-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
-      .from("avatars") // ← avatars バケット
+      .from("avatars")
       .upload(filePath, file, {
         cacheControl: "3600",
-        upsert: true,
+        upsert: true, // 同じキーなら上書きでOK
       });
 
     if (uploadError) {
@@ -65,13 +69,15 @@ function App() {
       data: { publicUrl },
     } = supabase.storage.from("avatars").getPublicUrl(filePath);
 
-    // profiles テーブルに upsert
     const { error: upsertError } = await supabase
       .from("profiles")
-      .upsert({
-        user_name: userName,
-        avatar_url: publicUrl,
-      });
+      .upsert(
+        {
+          user_name: userName,
+          avatar_url: publicUrl,
+        },
+        { onConflict: "user_name" } // user_name がユニークキーの場合
+      );
 
     if (upsertError) {
       console.error("profile upsert error:", upsertError);
@@ -82,7 +88,9 @@ function App() {
     setAvatarUrl(publicUrl);
   };
 
-
+  // ================================
+  // 雪アニメーション
+  // ================================
   useEffect(() => {
     const container = document.getElementById("snow-container");
     if (!container) return;
@@ -94,7 +102,6 @@ function App() {
       flake.className = "snowflake";
       flake.textContent = "❄";
 
-      // ランダムな位置・サイズ・アニメ速度
       flake.style.left = Math.random() * 100 + "vw";
       const size = 8 + Math.random() * 10;
       flake.style.fontSize = size + "px";
@@ -104,26 +111,23 @@ function App() {
       container.appendChild(flake);
       flakes.push(flake);
 
-      // アニメーション終わったら削除
       setTimeout(() => {
         flake.remove();
       }, 15000);
     };
 
-    // すこし多めに降らせる
     const interval = setInterval(createFlake, 300);
-    // 最初に数個まとめて降らせる
     for (let i = 0; i < 30; i++) createFlake();
 
-    // クリーンアップ
     return () => {
       clearInterval(interval);
       flakes.forEach((f) => f.remove());
     };
   }, []);
-  // -----------------------
-  // 起動時: ローカルから名前を復元
-  // -----------------------
+
+  // ================================
+  // 起動時: 名前を復元 & アバター取得
+  // ================================
   useEffect(() => {
     const saved = localStorage.getItem("miniInstaUserName");
     if (saved) {
@@ -133,9 +137,9 @@ function App() {
     }
   }, []);
 
-  // -----------------------
+  // ================================
   // 起動時: 投稿・コメント読み込み
-  // -----------------------
+  // ================================
   useEffect(() => {
     fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -169,7 +173,6 @@ function App() {
       setComments(commentsData || []);
     }
 
-    // 通知（自分あて）
     if (userName) {
       await fetchNotifications();
     }
@@ -177,9 +180,9 @@ function App() {
     setLoading(false);
   };
 
-  // -----------------------
+  // ================================
   // 通知の取得
-  // -----------------------
+  // ================================
   const fetchNotifications = async () => {
     if (!userName) return;
 
@@ -198,9 +201,9 @@ function App() {
     setNotifications(data || []);
   };
 
-  // -----------------------
-  // 投稿を送信
-  // -----------------------
+  // ================================
+  // 投稿送信
+  // ================================
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -213,7 +216,6 @@ function App() {
       return;
     }
 
-    // 初めて投稿するときに名前をローカルに固定
     if (!nameLocked) {
       const fixed = userName.trim();
       localStorage.setItem("miniInstaUserName", fixed);
@@ -221,7 +223,6 @@ function App() {
       setNameLocked(true);
     }
 
-    // 1) Supabase Storage に画像アップロード
     const ext = file.name.split(".").pop();
     const filePath = `${Date.now()}_${Math.random()
       .toString(36)
@@ -240,12 +241,10 @@ function App() {
       return;
     }
 
-    // 2) 公開URL取得
     const {
       data: { publicUrl },
     } = supabase.storage.from("images").getPublicUrl(filePath);
 
-    // 3) posts に insert
     const { data: inserted, error: insertError } = await supabase
       .from("posts")
       .insert({
@@ -262,15 +261,14 @@ function App() {
       return;
     }
 
-    // 4) 状態更新
     setFile(null);
     setCaption("");
     setPosts((prev) => [inserted, ...prev]);
   };
 
-  // -----------------------
+  // ================================
   // 投稿削除
-  // -----------------------
+  // ================================
   const handleDelete = async (postId, postUserName) => {
     if (postUserName !== userName) {
       alert("自分の投稿だけ削除できます");
@@ -295,9 +293,9 @@ function App() {
     setComments((prev) => prev.filter((c) => c.post_id !== postId));
   };
 
-  // -----------------------
+  // ================================
   // いいね
-  // -----------------------
+  // ================================
   const handleLike = async (post) => {
     if (!userName.trim()) {
       alert("名前を入力してからいいねしてね");
@@ -331,9 +329,9 @@ function App() {
     }
   };
 
-  // -----------------------
-  // プロフィールを開く / 戻る
-  // -----------------------
+  // ================================
+  // プロフィール画面切り替え
+  // ================================
   const openProfile = (name) => {
     if (!name) return;
     setProfileUser(name);
@@ -345,9 +343,9 @@ function App() {
     setProfileUser(null);
   };
 
-  // -----------------------
+  // ================================
   // コメント追加
-  // -----------------------
+  // ================================
   const handleAddComment = async (post, text) => {
     const body = text.trim();
     if (!userName.trim()) {
@@ -385,9 +383,9 @@ function App() {
     }
   };
 
-  // -----------------------
+  // ================================
   // 通知
-  // -----------------------
+  // ================================
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const toggleNotifications = async () => {
@@ -409,16 +407,15 @@ function App() {
     }
   };
 
-  // =======================
+  // ================================
   // JSX
-  // =======================
+  // ================================
   return (
     <div className="app">
-       <div id="snow-container" className="snow-container"></div>
+      <div id="snow-container" className="snow-container" />
       <header className="header">
         <div className="logo">miniInsta</div>
 
-        {/* プロフィールボタン（自分のページへ） */}
         <button
           className="profile-button"
           disabled={!userName}
@@ -455,7 +452,6 @@ function App() {
           </span>
         </div>
 
-        {/* 通知ボタン */}
         <button
           className="notify-button"
           onClick={async () => {
@@ -470,7 +466,6 @@ function App() {
         </button>
       </header>
 
-      {/* 通知パネル */}
       {showNotifications && (
         <NotificationsPanel
           notifications={notifications}
@@ -531,9 +526,9 @@ function App() {
   );
 }
 
-// =======================
+// =================================
 // 通知パネル
-// =======================
+// =================================
 function NotificationsPanel({ notifications, onClose }) {
   if (!notifications.length) {
     return (
@@ -574,9 +569,9 @@ function NotificationsPanel({ notifications, onClose }) {
   );
 }
 
-// =======================
+// =================================
 // タイムライン & 投稿カード
-// =======================
+// =================================
 function Timeline({
   posts,
   comments,
@@ -693,9 +688,9 @@ function PostCard({
   );
 }
 
-// =======================
+// =================================
 // プロフィール画面
-// =======================
+// =================================
 function ProfileView({ userName, posts, avatarUrl, onBack, onChangeAvatar }) {
   if (!userName) {
     return (
@@ -730,7 +725,6 @@ function ProfileView({ userName, posts, avatarUrl, onBack, onChangeAvatar }) {
             <span>合計いいね ❤️ {totalLikes}</span>
           </div>
 
-          {/* 自分のプロフィールのときだけアイコン変更可 */}
           {onChangeAvatar && (
             <label className="avatar-upload">
               アイコンを変更
