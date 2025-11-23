@@ -47,7 +47,7 @@ function App() {
 
     const ext = file.name.split(".").pop() || "png";
 
-    // ユーザー名を入れず、英数字だけのパスにする（日本語キー対策）
+    // 日本語を含めないファイルパス
     const filePath = `avatar-${Date.now()}-${Math.random()
       .toString(36)
       .slice(2)}.${ext}`;
@@ -56,7 +56,7 @@ function App() {
       .from("avatars")
       .upload(filePath, file, {
         cacheControl: "3600",
-        upsert: true, // 同じキーなら上書きでOK
+        upsert: true,
       });
 
     if (uploadError) {
@@ -76,7 +76,7 @@ function App() {
           user_name: userName,
           avatar_url: publicUrl,
         },
-        { onConflict: "user_name" } // user_name がユニークキーの場合
+        { onConflict: "user_name" }
       );
 
     if (upsertError) {
@@ -148,7 +148,6 @@ function App() {
   const fetchAll = async () => {
     setLoading(true);
 
-    // 投稿
     const { data: postsData, error: postsError } = await supabase
       .from("posts")
       .select("*")
@@ -161,7 +160,6 @@ function App() {
       setPosts(postsData || []);
     }
 
-    // コメント
     const { data: commentsData, error: commentsError } = await supabase
       .from("comments")
       .select("*")
@@ -504,6 +502,7 @@ function App() {
               posts={posts}
               comments={comments}
               currentUserName={userName}
+              currentUserAvatarUrl={avatarUrl} // ★ ここで渡す
               onDelete={handleDelete}
               onLike={handleLike}
               onAddComment={handleAddComment}
@@ -576,6 +575,7 @@ function Timeline({
   posts,
   comments,
   currentUserName,
+  currentUserAvatarUrl,
   onDelete,
   onLike,
   onAddComment,
@@ -593,6 +593,7 @@ function Timeline({
           post={post}
           comments={comments.filter((c) => c.post_id === post.id)}
           currentUserName={currentUserName}
+          currentUserAvatarUrl={currentUserAvatarUrl}
           onDelete={onDelete}
           onLike={onLike}
           onAddComment={onAddComment}
@@ -607,6 +608,7 @@ function PostCard({
   post,
   comments,
   currentUserName,
+  currentUserAvatarUrl,
   onDelete,
   onLike,
   onAddComment,
@@ -624,8 +626,20 @@ function PostCard({
     <article className="post-card">
       <header className="post-header">
         <div className="post-avatar">
-          {post.user_name ? post.user_name[0].toUpperCase() : "?"}
+          {/* ★ 自分の投稿 ＆ avatarUrl があるときだけ画像表示 */}
+          {post.user_name === currentUserName && currentUserAvatarUrl ? (
+            <img
+              src={currentUserAvatarUrl}
+              alt={post.user_name}
+              className="avatar-img"
+            />
+          ) : post.user_name ? (
+            post.user_name[0].toUpperCase()
+          ) : (
+            "?"
+          )}
         </div>
+
         <div className="post-header-main">
           <button
             type="button"
