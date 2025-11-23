@@ -8,6 +8,7 @@ function App() {
   const [caption, setCaption] = useState("");
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [file, setFile] = useState(null); 
 
   // 初回ロードで投稿一覧を取得
   useEffect(() => {
@@ -32,24 +33,57 @@ function App() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!userName.trim() || !imageUrl.trim()) return;
+  e.preventDefault();
 
-    const { error } = await supabase.from("posts").insert({
-      user_name: userName.trim(),
-      image_url: imageUrl.trim(),
-      caption: caption.trim() || null,
+  // 名前が空 or ファイルが選ばれてないときは何もしない
+  if (!userName.trim() || !file) {
+    alert("名前と画像を選んでね");
+    return;
+  }
+
+  // ========== 1) Supabase Storage に画像をアップロード ==========
+  const ext = file.name.split(".").pop(); // 拡張子（jpg, png など）
+  const fileName =
+    `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const filePath = `${userName}/${fileName}`; // ユーザー名フォルダっぽく保存
+
+  const { error: uploadError } = await supabase.storage
+    .from("images")            // ← さっき作ったバケット名
+    .upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: false,
     });
 
-    if (error) {
-      console.error("insert error:", error);
-      return;
-    }
+  if (uploadError) {
+    console.error("upload error:", uploadError);
+    alert("画像のアップロードに失敗しました: " + uploadError.message);
+    return;
+  }
 
-    setImageUrl("");
-    setCaption("");
-    await fetchPosts(); // 再読み込み
-  };
+  // ========== 2) 公開URLを取得 ==========
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from("images").getPublicUrl(filePath);
+
+  // ========== 3) posts テーブルにレコードを追加 ==========
+  const { error: insertError } = await supabase.from("posts").insert({
+    user_name: userName.trim(),
+    image_url: publicUrl,           // ← ここに今のURLを保存
+    caption: caption.trim() || null,
+  });
+
+  if (insertError) {
+    console.error("insert error:", insertError);
+    alert("投稿に失敗しました: " + insertError.message);
+    return;
+  }
+
+  // ========== 4) フォームをリセットして再読み込み ==========
+  setFile(null);
+  setCaption("");
+  await fetchPosts();
+};
+
 
   return (
     <div className="app">
@@ -73,11 +107,13 @@ function App() {
           <form className="new-post" onSubmit={handleSubmit}>
             <h2>新規投稿</h2>
             <input
-              type="text"
-              placeholder="画像のURLを貼り付け"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-            />
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+            const f = e.target.files?.[0] ?? null;
+            setFile(f);
+  }}
+/>
             <input
               type="text"
               placeholder="キャプション（任意）"
