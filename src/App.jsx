@@ -13,18 +13,43 @@ function App() {
   const [file, setFile] = useState(null);
   const [nameLocked, setNameLocked] = useState(false);
 
+  // どの画面を表示するか: "timeline" | "profile"
+  const [view, setView] = useState("timeline");
+  // 今表示しているプロフィールのユーザー名
+  const [profileUser, setProfileUser] = useState(null);
+  // 自分のアイコンURL
+  const [avatarUrl, setAvatarUrl] = useState(null);
+
+  // ---- プロフィールのアイコンを取得 ----
+  const fetchProfileAvatar = async (name) => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("avatar_url")
+      .eq("user_name", name)
+      .maybeSingle();
+
+    if (error) {
+      console.error("fetch profile error:", error);
+      return;
+    }
+    setAvatarUrl(data?.avatar_url || null);
+  };
+
   // 起動時にローカルストレージから名前を復元
   useEffect(() => {
     const saved = localStorage.getItem("miniInstaUserName");
     if (saved) {
       setUserName(saved);
       setNameLocked(true);
+      // 保存されていたユーザーのアイコンも取得
+      fetchProfileAvatar(saved);
     }
   }, []);
 
   // 起動時に投稿・コメント・通知を読み込み
   useEffect(() => {
     fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchAll = async () => {
@@ -81,6 +106,47 @@ function App() {
     setNotifications(data || []);
   };
 
+  // ---- アイコン画像をアップロード ----
+  const handleAvatarUpload = async (avatarFile) => {
+    if (!userName || !avatarFile) return;
+
+    const ext = avatarFile.name.split(".").pop();
+    const filePath = `${userName}-${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(filePath, avatarFile, {
+        cacheControl: "3600",
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("avatar upload error:", uploadError);
+      alert("アイコンのアップロードに失敗しました: " + uploadError.message);
+      return;
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("avatars").getPublicUrl(filePath);
+
+    const { error: upsertError } = await supabase
+      .from("profiles")
+      .upsert({
+        user_name: userName,
+        avatar_url: publicUrl,
+      });
+
+    if (upsertError) {
+      console.error("profile upsert error:", upsertError);
+      alert("プロフィールの保存に失敗しました: " + upsertError.message);
+      return;
+    }
+
+    setAvatarUrl(publicUrl);
+  };
+
+  // ---- 投稿送信 ----
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -101,11 +167,11 @@ function App() {
       setNameLocked(true);
     }
 
-    // ========== 1) Supabase Storage に画像をアップロード ==========
+    // 1) Supabase Storage に画像をアップロード
     const ext = file.name.split(".").pop();
-    // ユーザー名はパスに入れず、英数字だけのファイル名にする
-    const filePath =
-      `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const filePath = `${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2)}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from("images")
@@ -120,12 +186,12 @@ function App() {
       return;
     }
 
-    // ========== 2) 公開URLを取得 ==========
+    // 2) 公開URLを取得
     const {
       data: { publicUrl },
     } = supabase.storage.from("images").getPublicUrl(filePath);
 
-    // ========== 3) posts テーブルにレコードを追加 ==========
+    // 3) posts テーブルにレコードを追加
     const { data: inserted, error: insertError } = await supabase
       .from("posts")
       .insert({
@@ -142,7 +208,7 @@ function App() {
       return;
     }
 
-    // ========== 4) フォームをリセットしてローカル状態更新 ==========
+    // 4) フォームリセット & ローカル更新
     setFile(null);
     setCaption("");
     setPosts((prev) => [inserted, ...prev]);
@@ -208,6 +274,21 @@ function App() {
     }
   };
 
+  // プロフィールを開く
+  const openProfile = (name) => {
+    if (!name) return;
+    setProfileUser(name);
+    setView("profile");
+    // プロフィールを開いたタイミングでアイコンも取得
+    fetchProfileAvatar(name);
+  };
+
+  // タイムラインに戻る
+  const backToTimeline = () => {
+    setView("timeline");
+    setProfileUser(null);
+  };
+
   // コメント追加
   const handleAddComment = async (post, text) => {
     const body = text.trim();
@@ -255,7 +336,6 @@ function App() {
     setShowNotifications(willOpen);
 
     if (willOpen && userName) {
-      // 既読に更新
       const { error } = await supabase
         .from("notifications")
         .update({ read: true })
@@ -277,10 +357,27 @@ function App() {
       <header className="header">
         <div className="logo">miniInsta</div>
 
+        {/* プロフィールボタン：自分のページを開く */}
+        <button
+          className="profile-button"
+          disabled={!userName}
+          onClick={() => openProfile(userName)}
+          style={{ marginLeft: 16 }}
+        >
+          プロフィール
+        </button>
+
         <div className="user-info">
           <span className="avatar">
-            {userName ? userName[0].toUpperCase() : "?"}
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={userName} className="avatar-img" />
+            ) : userName ? (
+              userName[0].toUpperCase()
+            ) : (
+              "?"
+            )}
           </span>
+
           <input
             type="text"
             value={userName}
@@ -298,10 +395,13 @@ function App() {
         </div>
 
         {/* 通知ボタン */}
-        <button className="notify-button" onClick={async () => {
-          await fetchNotifications();
-          toggleNotifications();
-        }}>
+        <button
+          className="notify-button"
+          onClick={async () => {
+            await fetchNotifications();
+            toggleNotifications();
+          }}
+        >
           🔔
           {unreadCount > 0 && (
             <span className="notify-badge">{unreadCount}</span>
@@ -343,21 +443,34 @@ function App() {
 
           {loading && <p>読み込み中...</p>}
 
-          <Timeline
-            posts={posts}
-            comments={comments}
-            currentUserName={userName}
-            onDelete={handleDelete}
-            onLike={handleLike}
-            onAddComment={handleAddComment}
-          />
+          {view === "timeline" ? (
+            <Timeline
+              posts={posts}
+              comments={comments}
+              currentUserName={userName}
+              onDelete={handleDelete}
+              onLike={handleLike}
+              onAddComment={handleAddComment}
+              onUserClick={openProfile}
+            />
+          ) : (
+            <ProfileView
+              userName={profileUser}
+              posts={posts}
+              avatarUrl={profileUser === userName ? avatarUrl : null}
+              onBack={backToTimeline}
+              onChangeAvatar={
+                profileUser === userName ? handleAvatarUpload : undefined
+              }
+            />
+          )}
         </section>
       </main>
     </div>
   );
 }
 
-// 通知パネル
+// ---- 通知パネル ----
 function NotificationsPanel({ notifications, onClose }) {
   if (!notifications.length) {
     return (
@@ -380,12 +493,12 @@ function NotificationsPanel({ notifications, onClose }) {
       <ul>
         {notifications.map((n) => (
           <li key={n.id} className={n.read ? "read" : "unread"}>
-            <span className="kind">
-              {n.kind === "like" ? "❤️" : "💬"}
-            </span>
+            <span className="kind">{n.kind === "like" ? "❤️" : "💬"}</span>
             <span className="text">
               <strong>{n.from_user}</strong>
-              {n.kind === "like" ? " があなたの投稿にいいねしました" : " がコメントしました"}
+              {n.kind === "like"
+                ? " があなたの投稿にいいねしました"
+                : " がコメントしました"}
               {n.body && <>: {n.body}</>}
             </span>
             <span className="time">
@@ -398,7 +511,7 @@ function NotificationsPanel({ notifications, onClose }) {
   );
 }
 
-// 1投稿ごとのカード（コメント入力などをここで管理）
+// ---- タイムライン & PostCard ----
 function Timeline({
   posts,
   comments,
@@ -406,6 +519,7 @@ function Timeline({
   onDelete,
   onLike,
   onAddComment,
+  onUserClick,
 }) {
   if (!posts.length) {
     return <p>まだ投稿がありません。</p>;
@@ -422,6 +536,7 @@ function Timeline({
           onDelete={onDelete}
           onLike={onLike}
           onAddComment={onAddComment}
+          onUserClick={onUserClick}
         />
       ))}
     </div>
@@ -435,6 +550,7 @@ function PostCard({
   onDelete,
   onLike,
   onAddComment,
+  onUserClick,
 }) {
   const [commentText, setCommentText] = useState("");
 
@@ -451,11 +567,17 @@ function PostCard({
           {post.user_name ? post.user_name[0].toUpperCase() : "?"}
         </div>
         <div className="post-header-main">
-          <div className="post-username">{post.user_name}</div>
+          {/* ユーザー名をクリックできるようにする */}
+          <button
+            type="button"
+            className="post-username-button"
+            onClick={() => onUserClick && onUserClick(post.user_name)}
+          >
+            {post.user_name}
+          </button>
           <div className="post-display-name">{post.user_name}</div>
         </div>
 
-        {/* 自分の投稿だけ削除ボタン */}
         {post.user_name === currentUserName && (
           <button
             className="post-delete-button"
@@ -477,10 +599,7 @@ function PostCard({
           </p>
         )}
         <div className="post-meta">
-          <button
-            className="like-button"
-            onClick={() => onLike(post)}
-          >
+          <button className="like-button" onClick={() => onLike(post)}>
             ❤️ {post.likes ?? 0}
           </button>
           <time className="post-time">
@@ -488,7 +607,6 @@ function PostCard({
           </time>
         </div>
 
-        {/* コメント一覧 */}
         <div className="comments">
           {comments.map((c) => (
             <div key={c.id} className="comment">
@@ -497,7 +615,6 @@ function PostCard({
           ))}
         </div>
 
-        {/* コメント入力フォーム */}
         <form className="comment-form" onSubmit={submitComment}>
           <input
             type="text"
@@ -509,6 +626,70 @@ function PostCard({
         </form>
       </div>
     </article>
+  );
+}
+
+// ---- プロフィール画面 ----
+function ProfileView({ userName, posts, avatarUrl, onBack, onChangeAvatar }) {
+  if (!userName) {
+    return (
+      <div className="profile-view">
+        <button onClick={onBack}>← タイムラインに戻る</button>
+        <p>ユーザーが選択されていません。</p>
+      </div>
+    );
+  }
+
+  const userPosts = posts.filter((p) => p.user_name === userName);
+  const totalLikes = userPosts.reduce((sum, p) => sum + (p.likes ?? 0), 0);
+
+  return (
+    <div className="profile-view">
+      <button className="back-button" onClick={onBack}>
+        ← タイムラインに戻る
+      </button>
+
+      <div className="profile-header">
+        <div className="profile-avatar">
+          {avatarUrl ? (
+            <img src={avatarUrl} alt={userName} className="avatar-img" />
+          ) : (
+            userName[0]?.toUpperCase() ?? "?"
+          )}
+        </div>
+        <div className="profile-info">
+          <h2>{userName}</h2>
+          <div className="profile-stats">
+            <span>投稿 {userPosts.length}</span>
+            <span>合計いいね ❤️ {totalLikes}</span>
+          </div>
+
+          {/* 自分のプロフィールのときだけアイコン変更可 */}
+          {onChangeAvatar && (
+            <label className="avatar-upload">
+              アイコンを変更
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onChangeAvatar(f);
+                }}
+                style={{ display: "none" }}
+              />
+            </label>
+          )}
+        </div>
+      </div>
+
+      <div className="profile-grid">
+        {userPosts.map((post) => (
+          <div key={post.id} className="profile-grid-item">
+            <img src={post.image_url} alt={post.caption || ""} />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

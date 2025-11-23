@@ -233,3 +233,103 @@ body {
   font-size: 13px;
 }
 
+/* もともとの .header があればそのままでOK */
+.header {
+  /* 既に書いてあるプロパティに追加してOK */
+  position: relative; /* ベルをこの中で絶対配置できるようにする */
+}
+
+/* 通知ボタンの基本スタイルを少し控えめに */
+.notify-button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 22px;
+  position: static;  /* PCでは普通にフローの中 */
+}
+
+/* バッジがある場合の位置調整は今まで通りでOK */
+.notify-badge {
+  margin-left: 4px;
+  font-size: 11px;
+  background: #e0245e;
+  color: white;
+  border-radius: 999px;
+  padding: 0 5px;
+}
+
+/* ▼スマホサイズのときだけ右上に浮かせる */
+@media (max-width: 768px) {
+  .header {
+    position: relative;
+  }
+
+  .notify-button {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    font-size: 20px;      /* ちょっと小さめ */
+    padding: 4px;
+  }
+
+  /* 入力欄がベルとかぶらないように、右側に少し余白をあける */
+  .user-info {
+    padding-right: 40px;
+  }
+}
+.post-username-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #0a66c2;
+  cursor: pointer;
+  font-weight: 600;
+}
+.post-username-button:hover {
+  text-decoration: underline;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: #eee;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  margin-right: 8px;
+  overflow: hidden; /* 画像は丸に切る */
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  background: #eee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin-right: 16px;
+  overflow: hidden;
+}
+
+.avatar-upload {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  background: #fff;
+}
+
+
