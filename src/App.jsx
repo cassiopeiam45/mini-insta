@@ -199,6 +199,21 @@ function App() {
     setNotifications(data || []);
   };
 
+  // 未読通知を定期的にチェック（30秒ごと）
+useEffect(() => {
+  if (!userName) return;
+
+  // 画面を開いたタイミングでも1回取得
+  fetchNotifications();
+
+  const id = setInterval(() => {
+    fetchNotifications();
+  }, 30000); // 30秒ごと
+
+  return () => clearInterval(id);
+}, [userName]);
+
+
   // ================================
   // 投稿送信
   // ================================
@@ -342,44 +357,90 @@ function App() {
   };
 
   // ================================
-  // コメント追加
-  // ================================
-  const handleAddComment = async (post, text) => {
-    const body = text.trim();
-    if (!userName.trim()) {
-      alert("名前を入力してからコメントしてね");
-      return;
-    }
-    if (!body) return;
+// コメント追加（投稿者＋他のコメントした人にも通知）
+// ================================
+const handleAddComment = async (post, text) => {
+  const body = text.trim();
+  if (!userName.trim()) {
+    alert("名前を入力してからコメントしてね");
+    return;
+  }
+  if (!body) return;
 
-    const { data, error } = await supabase
-      .from("comments")
-      .insert({
-        post_id: post.id,
-        user_name: userName.trim(),
-        body,
-      })
-      .select()
-      .single();
+  // コメントを追加
+  const { data: newComment, error } = await supabase
+    .from("comments")
+    .insert({
+      post_id: post.id,
+      user_name: userName.trim(),
+      body,
+    })
+    .select()
+    .single();
 
-    if (error) {
-      console.error("add comment error:", error);
-      alert("コメントに失敗しました: " + error.message);
-      return;
-    }
+  if (error) {
+    console.error("add comment error:", error);
+    alert("コメントに失敗しました: " + error.message);
+    return;
+  }
 
-    setComments((prev) => [...prev, data]);
+  setComments((prev) => [...prev, newComment]);
 
-    if (post.user_name !== userName) {
-      await supabase.from("notifications").insert({
-        user_name: post.user_name,
+  // --- 通知をつくる配列 ---
+  const notificationsToInsert = [];
+
+  // ① 投稿者への通知（自分で自分にコメントしたときはナシ）
+  if (post.user_name !== userName) {
+    notificationsToInsert.push({
+      user_name: post.user_name, // 通知を受け取る人
+      from_user: userName,       // コメントした人
+      post_id: post.id,
+      kind: "comment",
+      body,
+    });
+  }
+
+  // ② すでにコメントしている人への「返信通知」
+  //   （自分と投稿者は除外）
+  const { data: commentedUsers, error: commentersError } = await supabase
+    .from("comments")
+    .select("user_name")
+    .eq("post_id", post.id);
+
+  if (!commentersError && commentedUsers) {
+    const uniqueOthers = [
+      ...new Set(
+        commentedUsers
+          .map((c) => c.user_name)
+          .filter(
+            (name) => name !== userName && name !== post.user_name
+          )
+      ),
+    ];
+
+    uniqueOthers.forEach((name) => {
+      notificationsToInsert.push({
+        user_name: name,   // その人あて
         from_user: userName,
         post_id: post.id,
-        kind: "comment",
+        kind: "reply",     // ← コメントへのコメント用
         body,
       });
+    });
+  }
+
+  // 通知レコードをまとめて insert
+  if (notificationsToInsert.length > 0) {
+    const { error: notifError } = await supabase
+      .from("notifications")
+      .insert(notificationsToInsert);
+
+    if (notifError) {
+      console.error("insert notifications error:", notifError);
     }
-  };
+  }
+};
+
 
   // ================================
   // 通知
@@ -451,7 +512,7 @@ function App() {
         </div>
 
         <button
-          className="notify-button"
+          className={`notify-button ${unreadCount > 0 ? "has-unread" : ""}`}
           onClick={async () => {
             await fetchNotifications();
             toggleNotifications();
@@ -555,8 +616,10 @@ function NotificationsPanel({ notifications, onClose }) {
               <strong>{n.from_user}</strong>
               {n.kind === "like"
                 ? " があなたの投稿にいいねしました"
+                : n.kind === "reply"
+                ? " があなたのコメントに返信しました"
                 : " がコメントしました"}
-              {n.body && <>: {n.body}</>}
+               {n.body && <>: {n.body}</>}
             </span>
             <span className="time">
               {new Date(n.created_at).toLocaleString()}
