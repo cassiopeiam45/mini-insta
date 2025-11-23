@@ -6,6 +6,9 @@ function App() {
   const [userName, setUserName] = useState("");
   const [caption, setCaption] = useState("");
   const [posts, setPosts] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState(null);
   const [nameLocked, setNameLocked] = useState(false);
@@ -19,26 +22,63 @@ function App() {
     }
   }, []);
 
-  // 起動時に投稿一覧を取得
+  // 起動時に投稿・コメント・通知を読み込み
   useEffect(() => {
-    fetchPosts();
+    fetchAll();
   }, []);
 
-  const fetchPosts = async () => {
+  const fetchAll = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+
+    // 投稿
+    const { data: postsData, error: postsError } = await supabase
       .from("posts")
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("fetch error:", error);
-      alert("読み込みエラー: " + error.message);
+    if (postsError) {
+      console.error("fetch posts error:", postsError);
+      alert("投稿の読み込みエラー: " + postsError.message);
     } else {
-      setPosts(data);
+      setPosts(postsData || []);
+    }
+
+    // コメント
+    const { data: commentsData, error: commentsError } = await supabase
+      .from("comments")
+      .select("*")
+      .order("created_at", { ascending: true });
+
+    if (commentsError) {
+      console.error("fetch comments error:", commentsError);
+    } else {
+      setComments(commentsData || []);
+    }
+
+    // 通知（自分あて）
+    if (userName) {
+      await fetchNotifications();
     }
 
     setLoading(false);
+  };
+
+  const fetchNotifications = async () => {
+    if (!userName) return;
+
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_name", userName)
+      .order("created_at", { ascending: false })
+      .limit(30);
+
+    if (error) {
+      console.error("fetch notifications error:", error);
+      return;
+    }
+
+    setNotifications(data || []);
   };
 
   const handleSubmit = async (e) => {
@@ -53,7 +93,7 @@ function App() {
       return;
     }
 
-    // 初めて投稿する時に名前を固定して保存
+    // 初めて投稿するときに名前を固定
     if (!nameLocked) {
       const fixed = userName.trim();
       localStorage.setItem("miniInstaUserName", fixed);
@@ -62,15 +102,13 @@ function App() {
     }
 
     // ========== 1) Supabase Storage に画像をアップロード ==========
-    // ========== 1) Supabase Storage に画像をアップロード ==========
-// ファイル名は「タイムスタンプ + ランダム英数字」だけにする（ユーザー名は使わない）
-const ext = file.name.split(".").pop();
-const filePath =
-  `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-
+    const ext = file.name.split(".").pop();
+    // ユーザー名はパスに入れず、英数字だけのファイル名にする
+    const filePath =
+      `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
-      .from("images") // ★ バケット名: images（小文字）
+      .from("images")
       .upload(filePath, file, {
         cacheControl: "3600",
         upsert: false,
@@ -88,11 +126,15 @@ const filePath =
     } = supabase.storage.from("images").getPublicUrl(filePath);
 
     // ========== 3) posts テーブルにレコードを追加 ==========
-    const { error: insertError } = await supabase.from("posts").insert({
-      user_name: userName.trim(),
-      image_url: publicUrl,
-      caption: caption.trim() || null,
-    });
+    const { data: inserted, error: insertError } = await supabase
+      .from("posts")
+      .insert({
+        user_name: userName.trim(),
+        image_url: publicUrl,
+        caption: caption.trim() || null,
+      })
+      .select()
+      .single();
 
     if (insertError) {
       console.error("insert error:", insertError);
@@ -100,15 +142,14 @@ const filePath =
       return;
     }
 
-    // ========== 4) フォームをリセットして再読み込み ==========
+    // ========== 4) フォームをリセットしてローカル状態更新 ==========
     setFile(null);
     setCaption("");
-    await fetchPosts();
+    setPosts((prev) => [inserted, ...prev]);
   };
 
   // 投稿削除
   const handleDelete = async (postId, postUserName) => {
-    // 念のためフロント側でも自分の投稿だけに制限
     if (postUserName !== userName) {
       alert("自分の投稿だけ削除できます");
       return;
@@ -128,14 +169,114 @@ const filePath =
       return;
     }
 
-    // ローカル状態からも削除
     setPosts((prev) => prev.filter((p) => p.id !== postId));
+    setComments((prev) => prev.filter((c) => c.post_id !== postId));
+  };
+
+  // いいね
+  const handleLike = async (post) => {
+    if (!userName.trim()) {
+      alert("名前を入力してからいいねしてね");
+      return;
+    }
+
+    const newLikes = (post.likes || 0) + 1;
+
+    const { data, error } = await supabase
+      .from("posts")
+      .update({ likes: newLikes })
+      .eq("id", post.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("like update error:", error);
+      alert("いいねに失敗しました: " + error.message);
+      return;
+    }
+
+    setPosts((prev) => prev.map((p) => (p.id === post.id ? data : p)));
+
+    // 通知（自分で自分にいいねした場合は通知しない）
+    if (post.user_name !== userName) {
+      await supabase.from("notifications").insert({
+        user_name: post.user_name,
+        from_user: userName,
+        post_id: post.id,
+        kind: "like",
+      });
+    }
+  };
+
+  // コメント追加
+  const handleAddComment = async (post, text) => {
+    const body = text.trim();
+    if (!userName.trim()) {
+      alert("名前を入力してからコメントしてね");
+      return;
+    }
+    if (!body) return;
+
+    const { data, error } = await supabase
+      .from("comments")
+      .insert({
+        post_id: post.id,
+        user_name: userName.trim(),
+        body,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("add comment error:", error);
+      alert("コメントに失敗しました: " + error.message);
+      return;
+    }
+
+    setComments((prev) => [...prev, data]);
+
+    // 通知（自分の投稿に自分でコメントしたときは通知なし）
+    if (post.user_name !== userName) {
+      await supabase.from("notifications").insert({
+        user_name: post.user_name,
+        from_user: userName,
+        post_id: post.id,
+        kind: "comment",
+        body,
+      });
+    }
+  };
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // 通知パネル開閉時に既読にする
+  const toggleNotifications = async () => {
+    const willOpen = !showNotifications;
+    setShowNotifications(willOpen);
+
+    if (willOpen && userName) {
+      // 既読に更新
+      const { error } = await supabase
+        .from("notifications")
+        .update({ read: true })
+        .eq("user_name", userName)
+        .eq("read", false);
+
+      if (error) {
+        console.error("mark read error:", error);
+      } else {
+        setNotifications((prev) =>
+          prev.map((n) => ({ ...n, read: true }))
+        );
+      }
+    }
   };
 
   return (
     <div className="app">
       <header className="header">
         <div className="logo">miniInsta</div>
+
         <div className="user-info">
           <span className="avatar">
             {userName ? userName[0].toUpperCase() : "?"}
@@ -155,7 +296,26 @@ const filePath =
             ※ 一度決めた名前はあとから変えられません
           </span>
         </div>
+
+        {/* 通知ボタン */}
+        <button className="notify-button" onClick={async () => {
+          await fetchNotifications();
+          toggleNotifications();
+        }}>
+          🔔
+          {unreadCount > 0 && (
+            <span className="notify-badge">{unreadCount}</span>
+          )}
+        </button>
       </header>
+
+      {/* 通知パネル */}
+      {showNotifications && (
+        <NotificationsPanel
+          notifications={notifications}
+          onClose={toggleNotifications}
+        />
+      )}
 
       <main className="main">
         <section className="timeline-section">
@@ -185,8 +345,11 @@ const filePath =
 
           <Timeline
             posts={posts}
+            comments={comments}
             currentUserName={userName}
             onDelete={handleDelete}
+            onLike={handleLike}
+            onAddComment={handleAddComment}
           />
         </section>
       </main>
@@ -194,7 +357,56 @@ const filePath =
   );
 }
 
-function Timeline({ posts, currentUserName, onDelete }) {
+// 通知パネル
+function NotificationsPanel({ notifications, onClose }) {
+  if (!notifications.length) {
+    return (
+      <div className="notifications-panel">
+        <div className="panel-header">
+          <h3>通知</h3>
+          <button onClick={onClose}>×</button>
+        </div>
+        <p>まだ通知はありません。</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="notifications-panel">
+      <div className="panel-header">
+        <h3>通知</h3>
+        <button onClick={onClose}>×</button>
+      </div>
+      <ul>
+        {notifications.map((n) => (
+          <li key={n.id} className={n.read ? "read" : "unread"}>
+            <span className="kind">
+              {n.kind === "like" ? "❤️" : "💬"}
+            </span>
+            <span className="text">
+              <strong>{n.from_user}</strong>
+              {n.kind === "like" ? " があなたの投稿にいいねしました" : " がコメントしました"}
+              {n.body && <>: {n.body}</>}
+            </span>
+            <span className="time">
+              {new Date(n.created_at).toLocaleString()}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// 1投稿ごとのカード（コメント入力などをここで管理）
+function Timeline({
+  posts,
+  comments,
+  currentUserName,
+  onDelete,
+  onLike,
+  onAddComment,
+}) {
   if (!posts.length) {
     return <p>まだ投稿がありません。</p>;
   }
@@ -202,44 +414,101 @@ function Timeline({ posts, currentUserName, onDelete }) {
   return (
     <div className="timeline">
       {posts.map((post) => (
-        <article key={post.id} className="post-card">
-          <header className="post-header">
-            <div className="post-avatar">
-              {post.user_name ? post.user_name[0].toUpperCase() : "?"}
-            </div>
-            <div className="post-header-main">
-              <div className="post-username">{post.user_name}</div>
-              <div className="post-display-name">{post.user_name}</div>
-            </div>
-
-            {/* 自分の投稿だけ削除ボタンを表示 */}
-            {post.user_name === currentUserName && (
-              <button
-                className="post-delete-button"
-                onClick={() => onDelete(post.id, post.user_name)} // ★ ここ user_name
-              >
-                削除
-              </button>
-            )}
-          </header>
-
-          <div className="post-image-wrapper">
-            <img src={post.image_url} alt={post.caption || ""} />
-          </div>
-
-          <div className="post-body">
-            {post.caption && (
-              <p>
-                <strong>{post.user_name}</strong> {post.caption}
-              </p>
-            )}
-            <time className="post-time">
-              {new Date(post.created_at).toLocaleString()}
-            </time>
-          </div>
-        </article>
+        <PostCard
+          key={post.id}
+          post={post}
+          comments={comments.filter((c) => c.post_id === post.id)}
+          currentUserName={currentUserName}
+          onDelete={onDelete}
+          onLike={onLike}
+          onAddComment={onAddComment}
+        />
       ))}
     </div>
+  );
+}
+
+function PostCard({
+  post,
+  comments,
+  currentUserName,
+  onDelete,
+  onLike,
+  onAddComment,
+}) {
+  const [commentText, setCommentText] = useState("");
+
+  const submitComment = (e) => {
+    e.preventDefault();
+    onAddComment(post, commentText);
+    setCommentText("");
+  };
+
+  return (
+    <article className="post-card">
+      <header className="post-header">
+        <div className="post-avatar">
+          {post.user_name ? post.user_name[0].toUpperCase() : "?"}
+        </div>
+        <div className="post-header-main">
+          <div className="post-username">{post.user_name}</div>
+          <div className="post-display-name">{post.user_name}</div>
+        </div>
+
+        {/* 自分の投稿だけ削除ボタン */}
+        {post.user_name === currentUserName && (
+          <button
+            className="post-delete-button"
+            onClick={() => onDelete(post.id, post.user_name)}
+          >
+            削除
+          </button>
+        )}
+      </header>
+
+      <div className="post-image-wrapper">
+        <img src={post.image_url} alt={post.caption || ""} />
+      </div>
+
+      <div className="post-body">
+        {post.caption && (
+          <p>
+            <strong>{post.user_name}</strong> {post.caption}
+          </p>
+        )}
+        <div className="post-meta">
+          <button
+            className="like-button"
+            onClick={() => onLike(post)}
+          >
+            ❤️ {post.likes ?? 0}
+          </button>
+          <time className="post-time">
+            {new Date(post.created_at).toLocaleString()}
+          </time>
+        </div>
+
+        {/* コメント一覧 */}
+        <div className="comments">
+          {comments.map((c) => (
+            <div key={c.id} className="comment">
+              <strong>{c.user_name}</strong> {c.body}
+            </div>
+          ))}
+        </div>
+
+        {/* コメント入力フォーム */}
+        <form className="comment-form" onSubmit={submitComment}>
+          <input
+            type="text"
+            value={commentText}
+            placeholder="コメントを追加..."
+            onChange={(e) => setCommentText(e.target.value)}
+          />
+          <button type="submit">送信</button>
+        </form>
+      </div>
+    </article>
   );
 }
 
